@@ -74,7 +74,7 @@ if (root) {
       card.innerHTML =
         '<p class="text-sm font-medium tracking-wide text-sun-deep uppercase">Your Compass Seed</p>' +
         '<p class="mt-4 font-display text-2xl leading-snug text-ink"></p>' +
-        '<p class="mt-4 text-muted">You\'re in the first step. I\'ll read this and see if we should build together. Your seed file and the MyGentic steps come to this email: ' +
+        '<p class="mt-4 text-muted">You\'re in the first step. I\'ve got your answers and I\'ll read them. If we should build together, I\'ll reach out to ' +
         email.trim() +
         ".</p>";
       card.querySelector("p.font-display").textContent = seed;
@@ -142,7 +142,7 @@ if (root) {
       area.addEventListener("input", () => (words = area.value));
       body.append(area);
     } else {
-      body.innerHTML = '<h3 class="text-3xl leading-tight">This is how I reach you.</h3><p class="mt-2 text-muted">Your seed file and the MyGentic steps come to this email. This is the only way to start.</p>';
+      body.innerHTML = '<h3 class="text-3xl leading-tight">This is how I reach you.</h3><p class="mt-2 text-muted">I\'ll read your answers and reach out to this email if we should build together.</p>';
       [["Name", "name", name], ["Email", "email", email], ["Phone", "tel", phone]].forEach(([label, type, value]) => {
         const wrap = document.createElement("label");
         wrap.className = "mt-5 block";
@@ -162,6 +162,12 @@ if (root) {
     }
     card.append(body);
 
+    const error = document.createElement("p");
+    error.className = "mt-4 hidden text-base";
+    error.style.color = "#b3261e";
+    error.setAttribute("role", "alert");
+    card.append(error);
+
     const row = document.createElement("div");
     row.className = "mt-6 flex items-center justify-between gap-3";
     row.append(
@@ -173,12 +179,41 @@ if (root) {
       button(
         last ? "Submit my assessment" : "Continue",
         "inline-flex min-h-12 items-center rounded-full bg-sun px-5 font-medium text-pine disabled:opacity-40",
-        () => {
-          if (last) {
-            if (!name.trim() || !email.includes("@") || !phone.trim()) {
-              alert("Leave your name, a real email, and a phone number.");
-              return;
-            }
+        async (event) => {
+          if (!last) {
+            step += 1;
+            render();
+            return;
+          }
+          if (!name.trim() || !email.includes("@") || !phone.trim()) {
+            alert("Leave your name, a real email, and a phone number.");
+            return;
+          }
+          const submitButton = event.currentTarget;
+          submitButton.disabled = true;
+          submitButton.textContent = "Sending…";
+          error.classList.add("hidden");
+          try {
+            const response = await fetch("/.netlify/functions/diagnostic", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: name.trim(),
+                email: email.trim(),
+                phone: phone.trim(),
+                words: words.trim(),
+                seed: letter(),
+                answers: questions.map((q, i) => ({ prompt: q.prompt, picked: answers[i] })),
+              }),
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.ok) throw new Error(result.error || "send failed");
+          } catch {
+            submitButton.disabled = false;
+            submitButton.textContent = "Submit my assessment";
+            error.textContent = "I couldn't save that just now — check your connection and try again. Your answers are still here.";
+            error.classList.remove("hidden");
+            return;
           }
           step += 1;
           render();
