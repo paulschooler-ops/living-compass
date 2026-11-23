@@ -1,0 +1,9 @@
+# Living Compass recruiting page.
+# Same pattern as schoolerventures.com: edit the HTML, push, Netlify publishes.
+[build]
+  publish = "."
+
+[[redirects]]
+  from = "/story"
+  to = "/story.html"
+  status = 200
